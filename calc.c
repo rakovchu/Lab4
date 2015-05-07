@@ -7,23 +7,34 @@
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("/proc calculator module");
 
-int calc_a = 0, calc_b = 0;
-char calc_op = '+';
-int calc_complete = 0;
+static int calc_a = 0, calc_b = 0;
+static char calc_op = '+';
+static int calc_read_args = 0;
 
 int calculate(int a, int b, char op)
 {
+    calc_read_args = 0;     // reset args counter
     if (op == '+')
         return a + b;
     if (op == '-')
-        return a + b;
+        return a - b;
     if (op == '*')
-        return a + b;
+        return a * b;
     if (op == '/')
-        return a + b;
+        return a / b;
     if (op == '%')
         return a % b;
     return 0;
+}
+
+void save_input(const char *buf)
+{
+    if (calc_read_args == 0)
+        calc_read_args += sscanf(buf, "%d %c %d", &calc_a, &calc_op, &calc_b);
+    else if (calc_read_args == 1)
+        calc_read_args += sscanf(buf, "%c %d", &calc_op, &calc_b);
+    else if (calc_read_args == 2)
+        calc_read_args += sscanf(buf, "%d", &calc_b);
 }
 
 static ssize_t read_callback(struct file *file, char *buf, size_t count, loff_t *ppos)
@@ -31,7 +42,7 @@ static ssize_t read_callback(struct file *file, char *buf, size_t count, loff_t 
     char result_str[16];
     int len;
 
-    if (calc_complete)
+    if (calc_read_args == 3)
         sprintf(result_str, "%d\n", calculate(calc_a, calc_b, calc_op));
     else
         sprintf(result_str, "---\n");
@@ -46,21 +57,39 @@ static ssize_t read_callback(struct file *file, char *buf, size_t count, loff_t 
             return 0;
 
     if (copy_to_user(buf, result_str, len))
-            return -EINVAL;
+        return -EINVAL;
     // Tell the user how much data we wrote.
     *ppos = len;
     return len;
 }
 
+static ssize_t write_callback(struct file *file, const char *buf, size_t count, loff_t *ppos)
+{
+    char read_buf[128];
+    int read_buf_size = 128;
+
+    if (count < read_buf_size)
+        read_buf_size = count;
+    if (copy_from_user(read_buf, buf, read_buf_size))
+        return -EINVAL;
+
+    printk(KERN_INFO "calc input: %s\n", buf);
+    save_input(read_buf);
+
+    return read_buf_size;
+}
+
 static const struct file_operations calc_fops = {
     .owner = THIS_MODULE,
     .read  = read_callback,
+    .write = write_callback,
 };
 
 static int __init calc_init(void)
 {
     printk(KERN_INFO "Calc module loaded\n");
-    if (!proc_create("calc", 0, NULL, &calc_fops)) {
+
+    if (!proc_create("calc", 0666, NULL, &calc_fops)) {
         printk(KERN_ERR "cannot create calc entry in /proc\n");
         return -ENOMEM;
     }
