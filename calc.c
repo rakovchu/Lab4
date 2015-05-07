@@ -7,10 +7,36 @@
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("/proc calculator module");
 
+int calc_a = 0, calc_b = 0;
+char calc_op = '+';
+int calc_complete = 0;
+
+int calculate(int a, int b, char op)
+{
+    if (op == '+')
+        return a + b;
+    if (op == '-')
+        return a + b;
+    if (op == '*')
+        return a + b;
+    if (op == '/')
+        return a + b;
+    if (op == '%')
+        return a % b;
+    return 0;
+}
+
 static ssize_t read_callback(struct file *file, char *buf, size_t count, loff_t *ppos)
 {
-    char *result_str = "123\n";
-    int len = strlen(result_str);
+    char result_str[16];
+    int len;
+
+    if (calc_complete)
+        sprintf(result_str, "%d\n", calculate(calc_a, calc_b, calc_op));
+    else
+        sprintf(result_str, "---\n");
+    len = strlen(result_str);
+
     // We only support reading the whole string at once.
     if (count < len)
             return -EINVAL;
@@ -23,7 +49,6 @@ static ssize_t read_callback(struct file *file, char *buf, size_t count, loff_t 
             return -EINVAL;
     // Tell the user how much data we wrote.
     *ppos = len;
-
     return len;
 }
 
@@ -51,3 +76,5 @@ static void __exit calc_cleanup(void)
 
 module_init(calc_init);
 module_exit(calc_cleanup);
+
+// http://www.linuxdevcenter.com/pub/a/linux/2007/07/05/devhelloworld-a-simple-introduction-to-device-drivers-under-linux.html?page=2
