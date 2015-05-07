@@ -88,7 +88,7 @@ static ssize_t read_result_callback(struct file *file, char *buf, size_t count, 
     char result_str[16];
     int len;
 
-    if (calc_read_args == 3)
+    if (calc_read_args >= 3)
         sprintf(result_str, "%d\n", calculate(calc_a, calc_b, calc_op));
     else
         sprintf(result_str, "---\n");
